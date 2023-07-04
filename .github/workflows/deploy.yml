@@ -23,6 +23,6 @@ jobs:
       - name: Upload to Deno Deploy
         uses: denoland/deployctl@v1
         with:
-          project: "quiet-clam-47"
+          project: "dc-wallet-scan"
           entrypoint: "https://deno.land/std@0.188.0/http/file_server.ts" # 📝 Update the entrypoint
           root: "dist"
