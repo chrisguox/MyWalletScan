@@ -1,25 +1,22 @@
 import {useEffect, useState} from "react";
-import {Button, Input, Space, Table, Modal, Form, notification, Spin, Tag, Popconfirm, message, Tooltip} from 'antd';
+import {Button, Input, Space, Table, Modal, Form, notification, Spin, Tag, Popconfirm, Tooltip} from 'antd';
 import {Layout, Card} from 'antd';
 import {exportToExcel,} from "@utils"
 import {
     CheckCircleOutlined,
     CloseCircleOutlined,
-    CopyOutlined,
     DeleteOutlined,
     DownloadOutlined,
-    EditOutlined, ReloadOutlined,
+    EditOutlined, EyeInvisibleOutlined, EyeOutlined, ReloadOutlined,
     SyncOutlined,
     UploadOutlined
 } from "@ant-design/icons";
-import {getStark} from "@utils/stark/main.js";
+import getLineaData from "@utils/getLinea/main.js";
 import './index.css'
-import copy from "copy-to-clipboard";
-import deleteData from "@utils/indexedDB/deleteData.js";
 
 const {TextArea} = Input;
 const {Content} = Layout;
-const Stark = () => {
+const Linea = () => {
     const [isBatchModalVisible, setIsBatchModalVisible] = useState(false);
     const [batchLoading, setBatchLoading] = useState(false);
     const [data, setData] = useState([]);
@@ -29,11 +26,20 @@ const Stark = () => {
     const [tableLoading, setTableLoading] = useState(false);
     let idCounter = data.length + 1;
     const [initialized, setInitialized] = useState(false);
-
+    const [hideColumn, setHideColumn] = useState(true);
+    const toggleHideColumn = () => {
+        setHideColumn(!hideColumn);
+    };
+    const getEyeIcon = () => {
+        if (hideColumn) {
+            return <EyeInvisibleOutlined/>;
+        }
+        return <EyeOutlined/>;
+    };
     useEffect(() => {
         setTableLoading(true);
 
-        const storedAddresses = localStorage.getItem('stark_addresses');
+        const storedAddresses = localStorage.getItem('linea_addresses');
         setTimeout(() => {
             setTableLoading(false);
         }, 500);
@@ -48,7 +54,7 @@ const Stark = () => {
     useEffect(() => {
         if (!initialized) return;
 
-        localStorage.setItem('stark_addresses', JSON.stringify(data));
+        localStorage.setItem('linea_addresses', JSON.stringify(data));
     }, [data, initialized]);
 
     const columns = [
@@ -73,7 +79,7 @@ const Stark = () => {
                         onPressEnter={(e) => {
                             record.name = e.target.value;
                             setData([...data]);
-                            localStorage.setItem('stark_addresses', JSON.stringify(data));
+                            localStorage.setItem('linea_addresses', JSON.stringify(data));
                             setEditingKey(null);
                         }}
                     />
@@ -91,126 +97,82 @@ const Stark = () => {
             },
         },
         {
-            title: '钱包地址',
+            title: <span>
+                钱包地址
+                <span onClick={toggleHideColumn} style={{marginLeft: 8, cursor: 'pointer'}}>
+                        {getEyeIcon()}
+                    </span>
+                </span>,
             dataIndex: 'address',
             key: 'address',
             align: 'center',
             className: 'address',
             render: (text, record) => {
-                const handleCopy = () => {
-                    copy(text);
-                    message.success('地址已复制');
-                };
-
-                return text ? (
-                    <>
-                        {text.slice(0, 4)}...{text.slice(-4)}
-                        <Button
-                            type="text"
-                            icon={<CopyOutlined/>}
-                            onClick={handleCopy}
-                            style={{marginLeft: 8}}
-                        />
-                    </>
-                ) : (
-                    <Spin/>
-                );
+                if (hideColumn) {
+                    return text.slice(0, 4) + '***' + text.slice(-4);
+                }
+                return text;
             },
         },
         {
-            title: "StarkId",
-            dataIndex: ["accountInfo", "starkId"],
-            key: "starkId",
-            align: "center",
-            render: (text, record) => text,
-        },
-        {
-            title: "StarkNet",
+            title: "Linea",
             className: "zksync2",
             children: [
                 {
                     title: "ETH",
-                    dataIndex: ["balance", "ETH"],
-                    key: "stark_eth_balance",
-                    align: "center",
-                    render: (text, record) => text,
-                },
-                {
-                    title: "USDC",
-                    dataIndex: ["balance", "USDC"],
-                    key: "stark_usdc_balance",
-                    align: "center",
-                    render: (text, record) => text,
-                },
-                {
-                    title: "USDT",
-                    dataIndex: ["balance", "USDT"],
-                    key: "stark_usdt_balance",
-                    align: "center",
-                    render: (text, record) => text,
-                },
-                {
-                    title: "DAI",
-                    dataIndex: ["balance", "DAI"],
-                    key: "stark_dai_balance",
-                    align: "center",
-                    render: (text, record) => text,
-                },
-                {
-                    title: "WBTC",
-                    dataIndex: ["balance", "WBTC"],
-                    key: "stark_wbtc_balance",
+                    dataIndex: "balance",
+                    key: "linea_eth_balance",
                     align: "center",
                     render: (text, record) => text,
                 },
                 {
                     title: "Tx",
-                    dataIndex: "tx",
-                    key: "stark_tx_amount",
+                    dataIndex: ["activity", "tx"],
+                    key: "linea_tx_amount",
                     align: "center",
                     render: (text, record) => text,
                     sorter: (a, b) => a.tx - b.tx,
                 },
                 {
                     title: "最后交易",
-                    dataIndex: "lastTime",
-                    key: "stark_latest_tx",
+                    dataIndex: ["activity", "lastTx"],
+                    key: "linea_latest_tx",
                     align: "center",
-                    render: (text, record) => <a href={`https://voyager.online/contract/${record.address}`}
+                    render: (text, record) => <a href={`https://lineascan.build/address/${record.address}`}
                                                  target="_blank">{text}</a>,
                 },
                 {
                     title: "官方桥Tx",
-                    className: "stark_cross_tx",
+                    className: "linea_cross_tx",
                     children: [
                         {
                             title: "L1->L2",
-                            dataIndex: ["bridge", "DepositTx"],
+                            dataIndex: ["L1ToL2", "L1ToL2Tx"],
                             align: "center",
                             render: (text, record) => text,
                         },
                         {
                             title: "L2->L1",
-                            dataIndex: ["bridge", "WithdrawTx"],
+                            dataIndex: ["L2ToL1", "L2ToL1Tx"],
                             align: "center",
                             render: (text, record) => text,
                         },
                     ]
                 },
                 {
-                    title: "官方桥金额(U)",
-                    className: "stark_cross_amount",
+                    title: "官方桥金额(ETH)",
+                    className: "linea_cross_amount",
                     children: [
                         {
                             title: "L1->L2",
-                            dataIndex: ["bridge", "DepositVolume"],
+                            dataIndex: ["L1ToL2", "L1ToL2Amount"],
                             align: "center",
                             render: (text, record) => text,
 
                         },
                         {
                             title: "L2->L1",
-                            dataIndex: ["bridge", "WithdrawVolume"],
+                            dataIndex: ["L2ToL1", "L2ToL1Amount"],
                             align: "center",
                             render: (text, record) => text,
                         }
@@ -219,7 +181,7 @@ const Stark = () => {
                 },
                 {
                     title: "活跃统计",
-                    className: "stark_activity",
+                    className: "linea_activity",
                     children: [
                         {
                             title: "天",
@@ -246,15 +208,8 @@ const Stark = () => {
                             render: (text, record) => text,
                         },
                         {
-                            title: "Vol(U)",
-                            dataIndex: "Vol",
-                            align: "center",
-                            render: (text, record) => text,
-                            sorter: (a, b) => a.Vol - b.Vol,
-                        },
-                        {
                             title: "fee(E)",
-                            dataIndex: "fee",
+                            dataIndex: ["activity", "fee"],
                             align: "center",
                             render: (text, record) => text,
                             sorter: (a, b) => a.fee - b.fee,
@@ -300,8 +255,7 @@ const Stark = () => {
     ];
     const handleDelete = async (address) => {
         setData(data.filter(item => item.address !== address));
-        localStorage.setItem('stark_addresses', JSON.stringify(data.filter(item => item.address !== address)));
-        await deleteData("starkTransactions", [address]);
+        localStorage.setItem('linea_addresses', JSON.stringify(data.filter(item => item.address !== address)));
     }
     const handleBatchOk = async () => {
         try {
@@ -310,7 +264,7 @@ const Stark = () => {
             const values = await batchForm.validateFields();
             const addresses = values.addresses.split("\n");
 
-            const limit = 5;
+            const limit = 2;
             let activePromises = 0;
             let promisesQueue = [];
 
@@ -328,14 +282,6 @@ const Stark = () => {
 
             for (let address of addresses) {
                 address = address.trim();
-                if (address.length !== 66 && address.length !== 64) {
-                    notification.error({
-                        message: "错误",
-                        description: "请输入正确的stark地址(64位)",
-                        duration: 1,
-                    });
-                    continue;
-                }
                 if (!address.startsWith("0x")) {
                     address = "0x" + address;
                 }
@@ -356,7 +302,7 @@ const Stark = () => {
                             }
                             return updatedData;
                         });
-                        const response = await getStark(address);
+                        const response = await getLineaData(address);
                         setData(prevData => {
                             const updatedData = [...prevData];
                             const index = updatedData.findIndex(item => item.address === address);
@@ -408,7 +354,7 @@ const Stark = () => {
         }
         setIsLoading(true);
         try {
-            const limit = 5;
+            const limit = 2;
             let activePromises = 0;
             let promisesQueue = [];
             const processQueue = () => {
@@ -440,14 +386,14 @@ const Stark = () => {
                                 return updatedData;
                             });
 
-                            const response = await getStark(data[index].address);
+                            const response = await getLineaData(data[index].address);
                             setData(prevData => {
                                 const updatedData = [...prevData];
                                 updatedData[index] = {
                                     ...updatedData[index],
                                     ...response,
                                 };
-                                localStorage.setItem('stark_addresses', JSON.stringify(updatedData));
+                                localStorage.setItem('linea_addresses', JSON.stringify(updatedData));
                                 return updatedData;
                             });
                             resolve();
@@ -490,14 +436,12 @@ const Stark = () => {
             });
             return;
         }
-        const addresses = data.filter(item => selectedKeys.includes(item.key)).map(item => item.address);
-        await deleteData("starkTransactions", addresses);
         setData(data.filter(item => !selectedKeys.includes(item.key)));
-        localStorage.setItem('stark_addresses', JSON.stringify(data.filter(item => !selectedKeys.includes(item.key))));
+        localStorage.setItem('linea_addresses', JSON.stringify(data.filter(item => !selectedKeys.includes(item.key))));
         setSelectedKeys([]);
     }
     const exportToExcelFile = () => {
-        exportToExcel(data, 'starkInfo');
+        exportToExcel(data, 'lineaInfo');
     }
     const [editingKey, setEditingKey] = useState(null);
     const rowSelection = {
@@ -527,12 +471,12 @@ const Stark = () => {
                                     let errorLines = [];
                                     for (let i = 0; i < addresses.length; i++) {
                                         let address = addresses[i].trim();
-                                        if (!address.startsWith("0x") || (address.length !== 66 && address.length !== 64)) {
+                                        if (!address.startsWith("0x") || (address.length !== 66 && address.length !== 42)) {
                                             errorLines.push(i + 1);
                                         }
                                     }
                                     if (errorLines.length) {
-                                        return Promise.reject(`行 ${errorLines.join(", ")} 的地址格式错误，请输入正确的stark地址(64位)`);
+                                        return Promise.reject(`行 ${errorLines.join(", ")} 的地址格式错误，请输入正确的地址`);
                                     }
                                     return Promise.resolve();
                                 }
@@ -590,4 +534,4 @@ const Stark = () => {
         </div>
     )
 }
-export default Stark;
+export default Linea;
